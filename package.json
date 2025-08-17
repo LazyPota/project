@@ -1,0 +1,21 @@
+{
+  "name": "aura-root",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "src/aura-frontend"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace=aura-frontend",
+    "prebuild": "npm run prebuild --workspace=aura-frontend --if-present",
+    "prestart": "npm run prebuild --workspace=aura-frontend --if-present",
+    "start": "npm start --workspace=aura-frontend",
+    "test": "npm test --workspace=aura-frontend"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.4.5"
+  }
+}
