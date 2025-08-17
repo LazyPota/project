@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Dashboard from './components/Dashboard';
 import SentimentGauge from './components/SentimentGauge';
 import PriceCard from './components/PriceCard';
 import LogFeed from './components/LogFeed';
@@ -11,7 +12,9 @@ import {
   clearLogs,
   setApiKey,
   checkConnection,
-  healthCheck
+  healthCheck,
+  startCycle,
+  stopAutomatedCycle
 } from './api/backend';
 import { 
   FaRobot, 
@@ -354,26 +357,30 @@ function App() {
 
         {/* Tab Content */}
         {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-6">
-              <SentimentGauge 
-                sentiment={dashboardData?.sentiment} 
-                loading={loading && !dashboardData} 
-              />
-              <PriceCard 
-                price={dashboardData?.price} 
-                loading={loading && !dashboardData} 
-              />
-            </div>
-            <div>
-              <LogFeed
-                logs={logs}
-                onClear={handleClearLogs}
-                onRefresh={fetchAllData}
-                loading={loading}
-              />
-            </div>
-          </div>
+          <Dashboard
+            dashboardData={dashboardData}
+            systemStatus={systemStatus}
+            onManualUpdate={handleManualUpdate}
+            onStartCycle={async () => {
+              try {
+                await startCycle();
+                setStatus({ message: 'Automated cycle started', type: 'success' });
+                setTimeout(fetchAllData, 1000);
+              } catch (error) {
+                setStatus({ message: 'Failed to start cycle', type: 'error' });
+              }
+            }}
+            onStopCycle={async () => {
+              try {
+                await stopAutomatedCycle();
+                setStatus({ message: 'Automated cycle stopped', type: 'success' });
+                setTimeout(fetchAllData, 1000);
+              } catch (error) {
+                setStatus({ message: 'Failed to stop cycle', type: 'error' });
+              }
+            }}
+            loading={loading}
+          />
         )}
 
         {activeTab === 'logs' && (
