@@ -15,24 +15,24 @@ import Option "mo:base/Option";
 import Buffer "mo:base/Buffer";
 import Char "mo:base/Char";
 
-actor AURA {
-  // Type definitions - Fixed syntax and structure
-  public type HeaderField = (Text, Text);
+persistent actor AURA {
+  // Type definitions
+  type HeaderField = (Text, Text);
   
-  public type HttpResponse = {
+  type HttpResponse = {
     status : Nat;
     headers : [HeaderField];
     body : Blob;
   };
   
-  public type TransformContext = {
+  type TransformContext = {
     response : HttpResponse;
     context : Blob;
   };
   
-  public type TransformFunction = shared query TransformContext -> async HttpResponse;
+  type TransformFunction = shared query TransformContext -> async HttpResponse;
   
-  public type HttpRequest = {
+  type HttpRequest = {
     url : Text;
     method : { #get; #head; #post };
     headers : [HeaderField];
@@ -40,22 +40,22 @@ actor AURA {
     transform : ?TransformFunction;
   };
   
-  public type HttpResult = { #ok : HttpResponse; #err : Text };
+  type HttpResult = { #ok : HttpResponse; #err : Text };
   
-  public type SentimentData = {
+  type SentimentData = {
     score: Int;
     confidence: Float;
     timestamp: Int;
     keywords: [Text];
   };
   
-  public type PriceData = {
+  type PriceData = {
     price: Float;
     change24h: Float;
     timestamp: Int;
   };
   
-  public type DashboardData = {
+  type DashboardData = {
     sentiment: SentimentData;
     price: PriceData;
     status: Text;
@@ -63,55 +63,48 @@ actor AURA {
     cycleCount: Nat;
   };
 
-  public type SystemStatus = {
-    isActive: Bool;
-    lastUpdate: Int;
-    cycleCount: Nat;
-    logsCount: Nat;
-  };
-
-  // Management canister interface - Fixed actor declaration
-  let ic : actor {
+  // Management canister reference
+  transient let ic = actor "aaaaa-aa" : actor {
     http_request : shared query (HttpRequest, Nat) -> async HttpResult;
-  } = actor "aaaaa-aa";
+  };
   
-  // Stable state for upgrades - Fixed variable declarations
+  // Stable state for upgrades
   private stable var logsStable : [Text] = [];
   private stable var apiKeyStable : Text = "";
   private stable var dashboardDataStable : ?DashboardData = null;
   private stable var cycleCountStable : Nat = 0;
   private stable var lastUpdateStable : Int = 0;
   private stable var authorizedCallersStable : [Principal] = [];
-  
-  // Runtime state - Fixed initialization
-  private var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
-  private var apiKey : Text = apiKeyStable;
-  private var dashboardData : ?DashboardData = dashboardDataStable;
-  private var cycleCount : Nat = cycleCountStable;
-  private var lastUpdate : Int = lastUpdateStable;
-  private var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
-  private var timerId : ?Timer.TimerId = null;
-  
+
+  // Runtime state
+  transient var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
+  transient var apiKey : Text = apiKeyStable;
+  transient var dashboardData : ?DashboardData = dashboardDataStable;
+  transient var cycleCount : Nat = cycleCountStable;
+  transient var lastUpdate : Int = lastUpdateStable;
+  transient var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
+  transient var timerId : ?Timer.TimerId = null;
+
   // Constants
-  private let MAX_LOGS : Nat = 100;
-  private let RETRY_ATTEMPTS : Nat = 3;
-  private let RETRY_DELAY_MS : Nat64 = 2000;
-  private let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
-  
+  transient let MAX_LOGS : Nat = 100;
+  private transient let RETRY_ATTEMPTS : Nat = 3;
+  private transient let RETRY_DELAY_MS : Nat64 = 2000;
+  private transient let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
+
   // Sentiment analysis keywords
-  private let POSITIVE_KEYWORDS : [Text] = [
+  private transient let POSITIVE_KEYWORDS : [Text] = [
     "bullish", "moon", "pump", "rally", "surge", "breakout", "bullrun",
     "adoption", "partnership", "upgrade", "positive", "growth", "gains",
     "buy", "hodl", "diamond", "hands", "rocket", "lambo"
   ];
   
-  private let NEGATIVE_KEYWORDS : [Text] = [
+  private transient let NEGATIVE_KEYWORDS : [Text] = [
     "bearish", "dump", "crash", "dip", "correction", "sell", "panic",
     "fear", "uncertainty", "doubt", "fud", "scam", "hack", "exploit",
     "regulation", "ban", "decline", "loss", "red", "blood", "capitulation"
   ];
 
-  // Initialize system - Fixed function signature
+  // Initialize system
   private func initializeSystem() : async () {
     addLog("🚀 AURA System Initializing...");
     
@@ -121,7 +114,7 @@ actor AURA {
     addLog("✅ AURA System Initialized Successfully");
   };
 
-  // Transform function for HTTP outcalls - Fixed public shared query
+  // Transform function for HTTP outcalls
   public shared query func transform(ctx : TransformContext) : async HttpResponse {
     {
       status = ctx.response.status;
@@ -130,7 +123,7 @@ actor AURA {
     }
   };
 
-  // Logging functions - Fixed implementation
+  // Logging functions
   private func addLog(msg : Text) : () {
     let timestamp = Time.now();
     let logEntry = Int.toText(timestamp) # " | " # msg;
@@ -150,11 +143,17 @@ actor AURA {
     Debug.print(logEntry);
   };
 
-  // Security: API key management - Fixed Result type usage
+  // Security: API key management
   public shared(msg) func setApiKey(key : Text) : async Result.Result<(), Text> {
     let caller = msg.caller;
     
-    // Check if caller is authorized (simplified for demo)
+    // Check if caller is authorized
+    let isAuthorized = Buffer.contains<Principal>(authorizedCallers, caller, Principal.equal);
+    if (not isAuthorized) {
+      addLog("❌ Unauthorized API key update attempt from: " # Principal.toText(caller));
+      return #err("Unauthorized: Only authorized callers can set API key");
+    };
+    
     if (Text.size(key) < 10) {
       return #err("API key too short");
     };
@@ -164,7 +163,21 @@ actor AURA {
     return #ok(());
   };
 
-  // Core sentiment analysis function - Fixed async function
+  // Add authorized caller
+  public shared(msg) func addAuthorizedCaller(principal : Principal) : async Result.Result<(), Text> {
+    let caller = msg.caller;
+    let isAuthorized = Buffer.contains<Principal>(authorizedCallers, caller, Principal.equal);
+    
+    if (not isAuthorized) {
+      return #err("Unauthorized");
+    };
+    
+    authorizedCallers.add(principal);
+    addLog("👤 Added authorized caller: " # Principal.toText(principal));
+    return #ok(());
+  };
+
+  // Core sentiment analysis function
   public func calculateSentiment(text : Text) : async Int {
     let lowerText = Text.map(text, func(c : Char) : Char {
       if (c >= 'A' and c <= 'Z') {
@@ -201,7 +214,7 @@ actor AURA {
     Int.abs(Float.toInt(sentimentRatio * 100.0))
   };
 
-  // Fetch ICP price from CoinGecko - Fixed async function
+  // Fetch ICP price from CoinGecko
   private func fetchPrice() : async Result.Result<PriceData, Text> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=internet-computer&vs_currencies=usd&include_24hr_change=true";
     
@@ -247,13 +260,14 @@ actor AURA {
       attempts += 1;
       if (attempts < RETRY_ATTEMPTS) {
         addLog("🔄 Retrying price fetch in " # Nat64.toText(RETRY_DELAY_MS) # "ms...");
+        // Note: In production, implement proper delay mechanism
       };
     };
     
     #err("Failed to fetch price after " # Nat.toText(RETRY_ATTEMPTS) # " attempts")
   };
 
-  // Parse price JSON response - Fixed function implementation
+  // Parse price JSON response
   private func parsePrice(json : Text) : Result.Result<PriceData, Text> {
     // Simple JSON parsing for ICP price
     let icpKey = "\"internet-computer\":{\"usd\":";
@@ -263,7 +277,7 @@ actor AURA {
       return #err("Price data not found in response");
     };
     
-    // Extract price - Fixed text parsing
+    // Extract price
     let priceParts = Text.split(json, #text icpKey);
     let priceAfter = switch (priceParts.next()) {
       case (?first) {
@@ -274,12 +288,11 @@ actor AURA {
       };
       case null return #err("Invalid price format");
     };
-    
+
     let priceEndIndex = switch (Text.indexOf(priceAfter, #text ",")) {
       case (?index) index;
       case null return #err("Invalid price format");
     };
-    
     let priceText = Text.take(priceAfter, priceEndIndex);
     let price = switch (textToFloat(priceText)) {
       case (?p) p;
@@ -321,7 +334,7 @@ actor AURA {
     })
   };
 
-  // Fetch news from NewsAPI - Fixed async function
+  // Fetch news from NewsAPI
   private func fetchNewsAsText() : async Result.Result<Text, Text> {
     if (apiKey == "") {
       return #err("NewsAPI key not configured");
@@ -377,7 +390,7 @@ actor AURA {
     #err("Failed to fetch news after " # Nat.toText(RETRY_ATTEMPTS) # " attempts")
   };
 
-  // Extract text content from news JSON - Fixed implementation
+  // Extract text content from news JSON
   private func extractNewsText(json : Text) : Result.Result<Text, Text> {
     var combinedText = "";
     let titleKey = "\"title\":\"";
@@ -392,9 +405,9 @@ actor AURA {
             // Extract first few articles' titles and descriptions
             let articleParts = Text.split(articlesJson, #text "{\"source\":");
             var count = 0;
-            for (article in articleParts) {
-              if (count >= 5) break; // Limit to first 5 articles
-              
+            label articlesLoop for (article in articleParts) {
+              if (count >= 5) { break articlesLoop }; // Limit to first 5 articles
+
               // Extract title
               if (Text.contains(article, #text titleKey)) {
                 let titleParts = Text.split(article, #text titleKey);
@@ -453,7 +466,7 @@ actor AURA {
     }
   };
 
-  // Main orchestrator function - Fixed public function
+  // Main orchestrator function
   public func checkMarketAndSentiment() : async () {
     addLog("🔄 Starting market and sentiment analysis cycle #" # Nat.toText(cycleCount + 1));
     
@@ -556,6 +569,7 @@ actor AURA {
       case (null, null) {
         addLog("❌ Cycle failed - no data retrieved");
         status := "Failed";
+        lastUpdate := Time.now();
       };
     };
     
@@ -563,37 +577,45 @@ actor AURA {
     lastUpdate := Time.now();
   };
 
-  // Start automated cycle with timer - Fixed implementation
+  // Start automated cycle
   private func startAutomatedCycle() : async () {
     // Cancel existing timer if any
     switch (timerId) {
-      case (?id) Timer.cancelTimer(id);
+      case (?id) { Timer.cancelTimer(id); };
       case null {};
     };
-    
+
     // Set up recurring timer
-    timerId := ?Timer.recurringTimer<system>(#nanoseconds(UPDATE_INTERVAL_NS), func() : async () {
-      try {
-        await checkMarketAndSentiment();
-      } catch (e) {
-        addLog("❌ Automated cycle error occurred");
-        Debug.print("Automated cycle error occurred");
-      };
-    });
+    timerId := ?Timer.recurringTimer<system>(
+      #nanoseconds(UPDATE_INTERVAL_NS),
+      func() : async () {
+        try {
+          await checkMarketAndSentiment();
+        } catch (e) {
+          addLog("❌ Automated cycle error occurred");
+          Debug.print("Automated cycle error occurred");
+        }
+      }
+    );
     
     addLog("⏰ Automated cycle started (5-minute intervals)");
   };
 
-  // Public API functions - Fixed query functions
+  // Public API functions
   public query func getDashboardData() : async ?DashboardData {
     dashboardData
   };
 
   public query func getLogs() : async [Text] {
-    Buffer.toArray(logs)
+    Buffer.toArray(logs);
   };
 
-  public query func getSystemStatus() : async SystemStatus {
+  public query func getSystemStatus() : async {
+    isActive: Bool;
+    lastUpdate: Int;
+    cycleCount: Nat;
+    logsCount: Nat;
+  } {
     {
       isActive = Option.isSome(timerId);
       lastUpdate = lastUpdate;
@@ -629,7 +651,7 @@ actor AURA {
     await startAutomatedCycle();
   };
 
-  // Health check endpoint - Fixed query function
+  // Health check endpoint
   public query func healthCheck() : async {
     status: Text;
     timestamp: Int;
@@ -642,7 +664,7 @@ actor AURA {
     }
   };
 
-  // Helper functions - Fixed implementations
+  // Helper functions
   private func textToFloat(text : Text) : ?Float {
     // Simple float parsing - in production, use a proper parser
     switch (Float.fromText(text)) {
@@ -677,7 +699,7 @@ actor AURA {
     Buffer.toArray(keywords)
   };
 
-  // System upgrade hooks - Fixed system functions
+  // System upgrade hooks
   system func preupgrade() {
     logsStable := Buffer.toArray(logs);
     apiKeyStable := apiKey;
@@ -701,7 +723,7 @@ actor AURA {
     });
   };
 
-  // Public initialization function - Fixed implementation
+  // Public initialization function
   public func initialize() : async () {
     await initializeSystem();
   };
