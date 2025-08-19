@@ -15,7 +15,7 @@ import Option "mo:base/Option";
 import Buffer "mo:base/Buffer";
 import Char "mo:base/Char";
 
-actor AURA {
+persistent actor class AURA() {
   // Type definitions
   public type HeaderField = (Text, Text);
   
@@ -64,41 +64,41 @@ actor AURA {
   };
 
   // Management canister reference
-  let ic = actor "aaaaa-aa" : actor {
+  transient let ic = actor "aaaaa-aa" : actor {
     http_request : shared query (HttpRequest, Nat) -> async HttpResult;
   };
   
-  // Stable state for upgrades - removed redundant 'stable' keywords
-  private var logsStable : [Text] = [];
-  private var apiKeyStable : Text = "";
-  private var dashboardDataStable : ?DashboardData = null;
-  private var cycleCountStable : Nat = 0;
-  private var lastUpdateStable : Int = 0;
-  private var authorizedCallersStable : [Principal] = [];
+  // Stable state for upgrades
+  transient var logsStable : [Text] = [];
+  transient var apiKeyStable : Text = "";
+  transient var dashboardDataStable : ?DashboardData = null;
+  transient var cycleCountStable : Nat = 0;
+  transient var lastUpdateStable : Int = 0;
+  transient var authorizedCallersStable : [Principal] = [];
 
   // Runtime state
-  private var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
-  private var apiKey : Text = apiKeyStable;
-  private var dashboardData : ?DashboardData = dashboardDataStable;
-  private var cycleCount : Nat = cycleCountStable;
-  private var lastUpdate : Int = lastUpdateStable;
-  private var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
-  private var timerId : ?Timer.TimerId = null;
+  transient var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
+  transient var apiKey : Text = apiKeyStable;
+  transient var dashboardData : ?DashboardData = dashboardDataStable;
+  transient var cycleCount : Nat = cycleCountStable;
+  transient var lastUpdate : Int = lastUpdateStable;
+  transient var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
+  transient var timerId : ?Timer.TimerId = null;
 
   // Constants
-  private let MAX_LOGS : Nat = 100;
-  private let RETRY_ATTEMPTS : Nat = 3;
-  private let RETRY_DELAY_MS : Nat64 = 2000;
-  private let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
+  transient let MAX_LOGS : Nat = 100;
+  transient let RETRY_ATTEMPTS : Nat = 3;
+  transient let RETRY_DELAY_MS : Nat64 = 2000;
+  transient let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
 
   // Sentiment analysis keywords
-  private let POSITIVE_KEYWORDS : [Text] = [
+  transient let POSITIVE_KEYWORDS : [Text] = [
     "bullish", "moon", "pump", "rally", "surge", "breakout", "bullrun",
     "adoption", "partnership", "upgrade", "positive", "growth", "gains",
     "buy", "hodl", "diamond", "hands", "rocket", "lambo"
   ];
-  
-  private let NEGATIVE_KEYWORDS : [Text] = [
+
+  transient let NEGATIVE_KEYWORDS : [Text] = [
     "bearish", "dump", "crash", "dip", "correction", "sell", "panic",
     "fear", "uncertainty", "doubt", "fud", "scam", "hack", "exploit",
     "regulation", "ban", "decline", "loss", "red", "blood", "capitulation"
