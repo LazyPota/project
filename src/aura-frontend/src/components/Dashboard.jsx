@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import LoadingSpinner from './LoadingSpinner';
 import { 
   FaRocket, 
   FaChartLine, 
@@ -47,14 +48,11 @@ const Dashboard = ({
 
   if (loading && !dashboardData) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white dark:bg-slate-800 rounded-xl shadow-lg p-6 animate-pulse">
-            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded mb-4"></div>
-            <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded mb-2"></div>
-            <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded"></div>
-          </div>
-        ))}
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <LoadingSpinner size="xl" className="mx-auto mb-4" />
+          <p className="text-slate-600 dark:text-slate-400">Loading dashboard data...</p>
+        </div>
       </div>
     );
   }
@@ -230,16 +228,16 @@ const Dashboard = ({
           <button
             onClick={onManualUpdate}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
           >
-            <FaSync className={loading ? 'animate-spin' : ''} />
+            {loading ? <LoadingSpinner size="sm" className="border-white" /> : <FaSync />}
             Manual Update
           </button>
 
           {systemStatus?.isActive ? (
             <button
               onClick={onStopCycle}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200"
             >
               <FaPause />
               Stop Cycle
@@ -247,7 +245,7 @@ const Dashboard = ({
           ) : (
             <button
               onClick={onStartCycle}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200"
             >
               <FaPlay />
               Start Cycle

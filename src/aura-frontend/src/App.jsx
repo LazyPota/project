@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ErrorBoundary from './components/ErrorBoundary';
+import LoadingSpinner from './components/LoadingSpinner';
 import Dashboard from './components/Dashboard';
 import SentimentGauge from './components/SentimentGauge';
 import PriceCard from './components/PriceCard';
@@ -16,6 +18,7 @@ import {
   startCycle,
   stopAutomatedCycle
 } from './api/backend';
+import { usePolling } from './hooks/usePolling';
 import { 
   FaRobot, 
   FaPlay, 
@@ -47,15 +50,17 @@ function App() {
   const [apiKey, setApiKeyInput] = useState('');
   const [status, setStatus] = useState({ message: '', type: 'info' });
 
-  // Polling interval (15 seconds)
-  const POLL_INTERVAL = 15000;
+  // Polling configuration
+  const POLL_INTERVAL = 15000; // 15 seconds
+  const CONNECTION_TIMEOUT = 10000; // 10 seconds
 
   // Initialize app
   useEffect(() => {
     initializeApp();
-    const interval = setInterval(fetchAllData, POLL_INTERVAL);
-    return () => clearInterval(interval);
   }, []);
+
+  // Set up polling with custom hook
+  usePolling(fetchAllData, POLL_INTERVAL, [connected]);
 
   // Dark mode effect
   useEffect(() => {
@@ -66,12 +71,30 @@ function App() {
   // Initialize application
   const initializeApp = async () => {
     setLoading(true);
+    setStatus({ message: 'Connecting to AURA system...', type: 'info' });
+    
     try {
-      await fetchAllData();
+      // Add connection timeout
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout')), CONNECTION_TIMEOUT)
+      );
+      
+      await Promise.race([fetchAllData(), timeoutPromise]);
       setStatus({ message: 'AURA system connected successfully', type: 'success' });
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setStatus({ message: '', type: 'info' });
+      }, 3000);
+      
     } catch (error) {
       console.error('Initialization error:', error);
-      setStatus({ message: 'Failed to connect to AURA system', type: 'error' });
+      setStatus({ 
+        message: error.message === 'Connection timeout' 
+          ? 'Connection timeout - please check your network' 
+          : 'Failed to connect to AURA system', 
+        type: 'error' 
+      });
       setConnected(false);
     } finally {
       setLoading(false);
@@ -203,7 +226,8 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-lg border-b border-slate-200 dark:border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -262,10 +286,10 @@ function App() {
               <button
                 onClick={handleManualUpdate}
                 disabled={loading || !connected}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 title="Trigger manual update"
               >
-                <FaSync className={loading ? 'animate-spin' : ''} />
+                {loading ? <LoadingSpinner size="sm" className="border-white" /> : <FaSync />}
                 <span className="hidden sm:inline">Update</span>
               </button>
 
@@ -460,7 +484,8 @@ function App() {
           </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 }
 

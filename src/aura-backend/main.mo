@@ -15,24 +15,24 @@ import Option "mo:base/Option";
 import Buffer "mo:base/Buffer";
 import Char "mo:base/Char";
 
-persistent actor AURA {
+actor AURA {
   // Type definitions
-  type HeaderField = (Text, Text);
+  public type HeaderField = (Text, Text);
   
-  type HttpResponse = {
+  public type HttpResponse = {
     status : Nat;
     headers : [HeaderField];
     body : Blob;
   };
   
-  type TransformContext = {
+  public type TransformContext = {
     response : HttpResponse;
     context : Blob;
   };
   
-  type TransformFunction = shared query TransformContext -> async HttpResponse;
+  public type TransformFunction = shared query TransformContext -> async HttpResponse;
   
-  type HttpRequest = {
+  public type HttpRequest = {
     url : Text;
     method : { #get; #head; #post };
     headers : [HeaderField];
@@ -40,22 +40,22 @@ persistent actor AURA {
     transform : ?TransformFunction;
   };
   
-  type HttpResult = { #ok : HttpResponse; #err : Text };
+  public type HttpResult = { #ok : HttpResponse; #err : Text };
   
-  type SentimentData = {
+  public type SentimentData = {
     score: Int;
     confidence: Float;
     timestamp: Int;
     keywords: [Text];
   };
   
-  type PriceData = {
+  public type PriceData = {
     price: Float;
     change24h: Float;
     timestamp: Int;
   };
   
-  type DashboardData = {
+  public type DashboardData = {
     sentiment: SentimentData;
     price: PriceData;
     status: Text;
@@ -64,41 +64,41 @@ persistent actor AURA {
   };
 
   // Management canister reference
-  transient let ic = actor "aaaaa-aa" : actor {
+  let ic = actor "aaaaa-aa" : actor {
     http_request : shared query (HttpRequest, Nat) -> async HttpResult;
   };
   
-  // Stable state for upgrades
-  private stable var logsStable : [Text] = [];
-  private stable var apiKeyStable : Text = "";
-  private stable var dashboardDataStable : ?DashboardData = null;
-  private stable var cycleCountStable : Nat = 0;
-  private stable var lastUpdateStable : Int = 0;
-  private stable var authorizedCallersStable : [Principal] = [];
+  // Stable state for upgrades - removed redundant 'stable' keywords
+  private var logsStable : [Text] = [];
+  private var apiKeyStable : Text = "";
+  private var dashboardDataStable : ?DashboardData = null;
+  private var cycleCountStable : Nat = 0;
+  private var lastUpdateStable : Int = 0;
+  private var authorizedCallersStable : [Principal] = [];
 
   // Runtime state
-  transient var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
-  transient var apiKey : Text = apiKeyStable;
-  transient var dashboardData : ?DashboardData = dashboardDataStable;
-  transient var cycleCount : Nat = cycleCountStable;
-  transient var lastUpdate : Int = lastUpdateStable;
-  transient var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
-  transient var timerId : ?Timer.TimerId = null;
+  private var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
+  private var apiKey : Text = apiKeyStable;
+  private var dashboardData : ?DashboardData = dashboardDataStable;
+  private var cycleCount : Nat = cycleCountStable;
+  private var lastUpdate : Int = lastUpdateStable;
+  private var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
+  private var timerId : ?Timer.TimerId = null;
 
   // Constants
-  transient let MAX_LOGS : Nat = 100;
-  private transient let RETRY_ATTEMPTS : Nat = 3;
-  private transient let RETRY_DELAY_MS : Nat64 = 2000;
-  private transient let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
+  private let MAX_LOGS : Nat = 100;
+  private let RETRY_ATTEMPTS : Nat = 3;
+  private let RETRY_DELAY_MS : Nat64 = 2000;
+  private let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
 
   // Sentiment analysis keywords
-  private transient let POSITIVE_KEYWORDS : [Text] = [
+  private let POSITIVE_KEYWORDS : [Text] = [
     "bullish", "moon", "pump", "rally", "surge", "breakout", "bullrun",
     "adoption", "partnership", "upgrade", "positive", "growth", "gains",
     "buy", "hodl", "diamond", "hands", "rocket", "lambo"
   ];
   
-  private transient let NEGATIVE_KEYWORDS : [Text] = [
+  private let NEGATIVE_KEYWORDS : [Text] = [
     "bearish", "dump", "crash", "dip", "correction", "sell", "panic",
     "fear", "uncertainty", "doubt", "fud", "scam", "hack", "exploit",
     "regulation", "ban", "decline", "loss", "red", "blood", "capitulation"
@@ -115,7 +115,7 @@ persistent actor AURA {
   };
 
   // Transform function for HTTP outcalls
-  public shared query func transform(ctx : TransformContext) : async HttpResponse {
+  public query func transform(ctx : TransformContext) : async HttpResponse {
     {
       status = ctx.response.status;
       headers = [];
@@ -214,6 +214,42 @@ persistent actor AURA {
     Int.abs(Float.toInt(sentimentRatio * 100.0))
   };
 
+  // Helper function to find text pattern
+  private func findTextPattern(text : Text, pattern : Text) : ?Nat {
+    let textSize = Text.size(text);
+    let patternSize = Text.size(pattern);
+    
+    if (patternSize > textSize) {
+      return null;
+    };
+    
+    let textChars = Text.toIter(text);
+    let textArray = Iter.toArray(textChars);
+    let patternChars = Text.toIter(pattern);
+    let patternArray = Iter.toArray(patternChars);
+    
+    var i = 0;
+    while (i <= textSize - patternSize) {
+      var j = 0;
+      var found = true;
+      
+      while (j < patternSize and found) {
+        if (textArray[i + j] != patternArray[j]) {
+          found := false;
+        };
+        j += 1;
+      };
+      
+      if (found) {
+        return ?i;
+      };
+      
+      i += 1;
+    };
+    
+    null
+  };
+
   // Fetch ICP price from CoinGecko
   private func fetchPrice() : async Result.Result<PriceData, Text> {
     let url = "https://api.coingecko.com/api/v3/simple/price?ids=internet-computer&vs_currencies=usd&include_24hr_change=true";
@@ -267,7 +303,7 @@ persistent actor AURA {
     #err("Failed to fetch price after " # Nat.toText(RETRY_ATTEMPTS) # " attempts")
   };
 
-  // Parse price JSON response
+  // Parse price JSON response - Fixed variable scoping and syntax
   private func parsePrice(json : Text) : Result.Result<PriceData, Text> {
     // Simple JSON parsing for ICP price
     let icpKey = "\"internet-computer\":{\"usd\":";
@@ -277,61 +313,56 @@ persistent actor AURA {
       return #err("Price data not found in response");
     };
     
-    // Extract price
-    let priceParts = Text.split(json, #text icpKey);
-    let priceAfter = switch (priceParts.next()) {
-      case (?first) {
-        switch (priceParts.next()) {
-          case (?second) second;
-          case null return #err("Invalid price format");
-        };
-      };
-      case null return #err("Invalid price format");
-    };
-
-    let priceEndIndex = switch (Text.indexOf(priceAfter, #text ",")) {
-      case (?index) index;
-      case null return #err("Invalid price format");
-    };
-    let priceText = Text.take(priceAfter, priceEndIndex);
-    let price = switch (textToFloat(priceText)) {
-      case (?p) p;
-      case null return #err("Failed to parse price: " # priceText);
-    };
-    
-    // Extract 24h change
-    var change24h : Float = 0.0;
-    if (Text.contains(json, #text changeKey)) {
-      let changeParts = Text.split(json, #text changeKey);
-      let changeAfter = switch (changeParts.next()) {
-        case (?first) {
-          switch (changeParts.next()) {
-            case (?second) second;
-            case null "";
+    // Extract price using helper function
+    switch (findTextPattern(json, icpKey)) {
+      case (?startIndex) {
+        let afterKey = Text.drop(json, startIndex + Text.size(icpKey));
+        switch (findTextPattern(afterKey, ",")) {
+          case (?endIndex) {
+            let priceText = Text.take(afterKey, endIndex);
+            switch (textToFloat(priceText)) {
+              case (?priceValue) {
+                // Extract 24h change
+                var change24hValue : Float = 0.0;
+                if (Text.contains(json, #text changeKey)) {
+                  switch (findTextPattern(json, changeKey)) {
+                    case (?changeStartIndex) {
+                      let afterChangeKey = Text.drop(json, changeStartIndex + Text.size(changeKey));
+                      switch (findTextPattern(afterChangeKey, "}")) {
+                        case (?changeEndIndex) {
+                          let changeText = Text.take(afterChangeKey, changeEndIndex);
+                          change24hValue := switch (textToFloat(changeText)) {
+                            case (?c) c;
+                            case null 0.0;
+                          };
+                        };
+                        case null {};
+                      };
+                    };
+                    case null {};
+                  };
+                };
+                
+                return #ok({
+                  price = priceValue;
+                  change24h = change24hValue;
+                  timestamp = Time.now();
+                });
+              };
+              case null {
+                return #err("Failed to parse price: " # priceText);
+              };
+            };
+          };
+          case null {
+            return #err("Invalid price format - no comma found");
           };
         };
-        case null "";
       };
-      
-      if (changeAfter != "") {
-        let changeEndIndex = switch (Text.indexOf(changeAfter, #text "}")) {
-          case (?index) index;
-          case null Text.size(changeAfter);
-        };
-        
-        let changeText = Text.take(changeAfter, changeEndIndex);
-        change24h := switch (textToFloat(changeText)) {
-          case (?c) c;
-          case null 0.0;
-        };
+      case null {
+        return #err("Price key not found in JSON");
       };
     };
-    
-    #ok({
-      price = price;
-      change24h = change24h;
-      timestamp = Time.now();
-    })
   };
 
   // Fetch news from NewsAPI
@@ -415,12 +446,13 @@ persistent actor AURA {
                   case (?first) {
                     switch (titleParts.next()) {
                       case (?titleAfter) {
-                        let titleEndIndex = switch (Text.indexOf(titleAfter, #text "\",")) {
-                          case (?index) index;
-                          case null Text.size(titleAfter);
+                        switch (findTextPattern(titleAfter, "\",")) {
+                          case (?titleEndIndex) {
+                            let title = Text.take(titleAfter, titleEndIndex);
+                            combinedText := combinedText # " " # title;
+                          };
+                          case null {};
                         };
-                        let title = Text.take(titleAfter, titleEndIndex);
-                        combinedText := combinedText # " " # title;
                       };
                       case null {};
                     };
@@ -436,12 +468,13 @@ persistent actor AURA {
                   case (?first) {
                     switch (descParts.next()) {
                       case (?descAfter) {
-                        let descEndIndex = switch (Text.indexOf(descAfter, #text "\",")) {
-                          case (?index) index;
-                          case null Text.size(descAfter);
+                        switch (findTextPattern(descAfter, "\",")) {
+                          case (?descEndIndex) {
+                            let desc = Text.take(descAfter, descEndIndex);
+                            combinedText := combinedText # " " # desc;
+                          };
+                          case null {};
                         };
-                        let desc = Text.take(descAfter, descEndIndex);
-                        combinedText := combinedText # " " # desc;
                       };
                       case null {};
                     };
@@ -476,9 +509,9 @@ persistent actor AURA {
     
     // Fetch price data
     switch (await fetchPrice()) {
-      case (#ok(price)) {
-        priceData := ?price;
-        addLog("📈 ICP Price: $" # Float.toText(price.price) # " (24h: " # Float.toText(price.change24h) # "%)");
+      case (#ok(priceResult)) {
+        priceData := ?priceResult;
+        addLog("📈 ICP Price: $" # Float.toText(priceResult.price) # " (24h: " # Float.toText(priceResult.change24h) # "%)");
       };
       case (#err(msg)) {
         addLog("❌ Price fetch failed: " # msg);
@@ -519,10 +552,10 @@ persistent actor AURA {
     
     // Update dashboard data
     switch (priceData, sentimentData) {
-      case (?price, ?sentiment) {
+      case (?priceResult, ?sentiment) {
         dashboardData := ?{
           sentiment = sentiment;
-          price = price;
+          price = priceResult;
           status = "Active";
           lastUpdate = Time.now();
           cycleCount = cycleCount + 1;
@@ -530,7 +563,7 @@ persistent actor AURA {
         status := "Active";
         addLog("✅ Cycle completed successfully");
       };
-      case (?price, null) {
+      case (?priceResult, null) {
         // Price only
         let defaultSentiment = {
           score = 0;
@@ -540,7 +573,7 @@ persistent actor AURA {
         };
         dashboardData := ?{
           sentiment = defaultSentiment;
-          price = price;
+          price = priceResult;
           status = "Partial (Price Only)";
           lastUpdate = Time.now();
           cycleCount = cycleCount + 1;
@@ -666,7 +699,7 @@ persistent actor AURA {
 
   // Helper functions
   private func textToFloat(text : Text) : ?Float {
-    // Simple float parsing - in production, use a proper parser
+    // Simple float parsing using Float.fromText
     switch (Float.fromText(text)) {
       case (#ok(f)) ?f;
       case (#err(_)) null;

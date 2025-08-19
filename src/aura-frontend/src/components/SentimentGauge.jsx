@@ -1,4 +1,5 @@
 import React from 'react';
+import LoadingSpinner from './LoadingSpinner';
 import { FaArrowUp, FaArrowDown, FaMinus } from 'react-icons/fa';
 
 const SentimentGauge = ({ sentiment, loading = false }) => {
@@ -9,7 +10,7 @@ const SentimentGauge = ({ sentiment, loading = false }) => {
           Market Sentiment
         </h3>
         <div className="flex items-center justify-center h-32">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <LoadingSpinner size="lg" />
         </div>
       </div>
     );
