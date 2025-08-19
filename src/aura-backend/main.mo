@@ -15,7 +15,7 @@ import Option "mo:base/Option";
 import Buffer "mo:base/Buffer";
 import Char "mo:base/Char";
 
-persistent actor class AURA() {
+actor AURA {
   // Type definitions
   public type HeaderField = (Text, Text);
   
@@ -64,41 +64,41 @@ persistent actor class AURA() {
   };
 
   // Management canister reference
-  transient let ic = actor "aaaaa-aa" : actor {
+  let ic = actor "aaaaa-aa" : actor {
     http_request : shared query (HttpRequest, Nat) -> async HttpResult;
   };
   
   // Stable state for upgrades
-  transient var logsStable : [Text] = [];
-  transient var apiKeyStable : Text = "";
-  transient var dashboardDataStable : ?DashboardData = null;
-  transient var cycleCountStable : Nat = 0;
-  transient var lastUpdateStable : Int = 0;
-  transient var authorizedCallersStable : [Principal] = [];
+  stable var logsStable : [Text] = [];
+  stable var apiKeyStable : Text = "";
+  stable var dashboardDataStable : ?DashboardData = null;
+  stable var cycleCountStable : Nat = 0;
+  stable var lastUpdateStable : Int = 0;
+  stable var authorizedCallersStable : [Principal] = [];
 
   // Runtime state
-  transient var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
-  transient var apiKey : Text = apiKeyStable;
-  transient var dashboardData : ?DashboardData = dashboardDataStable;
-  transient var cycleCount : Nat = cycleCountStable;
-  transient var lastUpdate : Int = lastUpdateStable;
-  transient var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
-  transient var timerId : ?Timer.TimerId = null;
+  var logs : Buffer.Buffer<Text> = Buffer.fromArray(logsStable);
+  var apiKey : Text = apiKeyStable;
+  var dashboardData : ?DashboardData = dashboardDataStable;
+  var cycleCount : Nat = cycleCountStable;
+  var lastUpdate : Int = lastUpdateStable;
+  var authorizedCallers : Buffer.Buffer<Principal> = Buffer.fromArray(authorizedCallersStable);
+  var timerId : ?Timer.TimerId = null;
 
   // Constants
-  transient let MAX_LOGS : Nat = 100;
-  transient let RETRY_ATTEMPTS : Nat = 3;
-  transient let RETRY_DELAY_MS : Nat64 = 2000;
-  transient let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
+  let MAX_LOGS : Nat = 100;
+  let RETRY_ATTEMPTS : Nat = 3;
+  let RETRY_DELAY_MS : Nat64 = 2000;
+  let UPDATE_INTERVAL_NS : Nat64 = 300_000_000_000; // 5 minutes in nanoseconds
 
   // Sentiment analysis keywords
-  transient let POSITIVE_KEYWORDS : [Text] = [
+  let POSITIVE_KEYWORDS : [Text] = [
     "bullish", "moon", "pump", "rally", "surge", "breakout", "bullrun",
     "adoption", "partnership", "upgrade", "positive", "growth", "gains",
     "buy", "hodl", "diamond", "hands", "rocket", "lambo"
   ];
 
-  transient let NEGATIVE_KEYWORDS : [Text] = [
+  let NEGATIVE_KEYWORDS : [Text] = [
     "bearish", "dump", "crash", "dip", "correction", "sell", "panic",
     "fear", "uncertainty", "doubt", "fud", "scam", "hack", "exploit",
     "regulation", "ban", "decline", "loss", "red", "blood", "capitulation"
@@ -177,6 +177,70 @@ persistent actor class AURA() {
     return #ok(());
   };
 
+  // Helper function to find text pattern (replaces Text.indexOf)
+  private func findTextPattern(text : Text, pattern : Text) : ?Nat {
+    let textSize = Text.size(text);
+    let patternSize = Text.size(pattern);
+    
+    if (patternSize > textSize) {
+      return null;
+    };
+    
+    let textChars = Text.toIter(text);
+    let textArray = Iter.toArray(textChars);
+    let patternChars = Text.toIter(pattern);
+    let patternArray = Iter.toArray(patternChars);
+    
+    var i = 0;
+    while (i <= textSize - patternSize) {
+      var j = 0;
+      var found = true;
+      
+      while (j < patternSize and found) {
+        if (textArray[i + j] != patternArray[j]) {
+          found := false;
+        };
+        j += 1;
+      };
+      
+      if (found) {
+        return ?i;
+      };
+      
+      i += 1;
+    };
+    
+    null
+  };
+
+  // Helper function to drop characters from start (replaces Text.drop)
+  private func dropText(text : Text, n : Nat) : Text {
+    let chars = Text.toIter(text);
+    let charArray = Iter.toArray(chars);
+    let textSize = charArray.size();
+    
+    if (n >= textSize) {
+      return "";
+    };
+    
+    let resultChars = Array.tabulate<Char>(textSize - n, func(i) = charArray[i + n]);
+    Text.fromIter(resultChars.vals())
+  };
+
+  // Helper function to take characters from start (replaces Text.take)
+  private func takeText(text : Text, n : Nat) : Text {
+    let chars = Text.toIter(text);
+    let charArray = Iter.toArray(chars);
+    let textSize = charArray.size();
+    
+    if (n >= textSize) {
+      return text;
+    };
+    
+    let resultChars = Array.tabulate<Char>(n, func(i) = charArray[i]);
+    Text.fromIter(resultChars.vals())
+  };
+
   // Core sentiment analysis function
   public func calculateSentiment(text : Text) : async Int {
     let lowerText = Text.map(text, func(c : Char) : Char {
@@ -212,42 +276,6 @@ persistent actor class AURA() {
     
     let sentimentRatio = Float.fromInt(positiveScore - negativeScore) / Float.fromInt(totalKeywords);
     Int.abs(Float.toInt(sentimentRatio * 100.0))
-  };
-
-  // Helper function to find text pattern
-  private func findTextPattern(text : Text, pattern : Text) : ?Nat {
-    let textSize = Text.size(text);
-    let patternSize = Text.size(pattern);
-    
-    if (patternSize > textSize) {
-      return null;
-    };
-    
-    let textChars = Text.toIter(text);
-    let textArray = Iter.toArray(textChars);
-    let patternChars = Text.toIter(pattern);
-    let patternArray = Iter.toArray(patternChars);
-    
-    var i = 0;
-    while (i <= textSize - patternSize) {
-      var j = 0;
-      var found = true;
-      
-      while (j < patternSize and found) {
-        if (textArray[i + j] != patternArray[j]) {
-          found := false;
-        };
-        j += 1;
-      };
-      
-      if (found) {
-        return ?i;
-      };
-      
-      i += 1;
-    };
-    
-    null
   };
 
   // Fetch ICP price from CoinGecko
@@ -296,14 +324,13 @@ persistent actor class AURA() {
       attempts += 1;
       if (attempts < RETRY_ATTEMPTS) {
         addLog("🔄 Retrying price fetch in " # Nat64.toText(RETRY_DELAY_MS) # "ms...");
-        // Note: In production, implement proper delay mechanism
       };
     };
     
     #err("Failed to fetch price after " # Nat.toText(RETRY_ATTEMPTS) # " attempts")
   };
 
-  // Parse price JSON response - Fixed variable scoping and syntax
+  // Parse price JSON response - Fixed all variable scoping and syntax issues
   private func parsePrice(json : Text) : Result.Result<PriceData, Text> {
     // Simple JSON parsing for ICP price
     let icpKey = "\"internet-computer\":{\"usd\":";
@@ -316,10 +343,10 @@ persistent actor class AURA() {
     // Extract price using helper function
     switch (findTextPattern(json, icpKey)) {
       case (?startIndex) {
-        let afterKey = Text.drop(json, startIndex + Text.size(icpKey));
+        let afterKey = dropText(json, startIndex + Text.size(icpKey));
         switch (findTextPattern(afterKey, ",")) {
           case (?endIndex) {
-            let priceText = Text.take(afterKey, endIndex);
+            let priceText = takeText(afterKey, endIndex);
             switch (textToFloat(priceText)) {
               case (?priceValue) {
                 // Extract 24h change
@@ -327,10 +354,10 @@ persistent actor class AURA() {
                 if (Text.contains(json, #text changeKey)) {
                   switch (findTextPattern(json, changeKey)) {
                     case (?changeStartIndex) {
-                      let afterChangeKey = Text.drop(json, changeStartIndex + Text.size(changeKey));
+                      let afterChangeKey = dropText(json, changeStartIndex + Text.size(changeKey));
                       switch (findTextPattern(afterChangeKey, "}")) {
                         case (?changeEndIndex) {
-                          let changeText = Text.take(afterChangeKey, changeEndIndex);
+                          let changeText = takeText(afterChangeKey, changeEndIndex);
                           change24hValue := switch (textToFloat(changeText)) {
                             case (?c) c;
                             case null 0.0;
@@ -448,7 +475,7 @@ persistent actor class AURA() {
                       case (?titleAfter) {
                         switch (findTextPattern(titleAfter, "\",")) {
                           case (?titleEndIndex) {
-                            let title = Text.take(titleAfter, titleEndIndex);
+                            let title = takeText(titleAfter, titleEndIndex);
                             combinedText := combinedText # " " # title;
                           };
                           case null {};
@@ -470,7 +497,7 @@ persistent actor class AURA() {
                       case (?descAfter) {
                         switch (findTextPattern(descAfter, "\",")) {
                           case (?descEndIndex) {
-                            let desc = Text.take(descAfter, descEndIndex);
+                            let desc = takeText(descAfter, descEndIndex);
                             combinedText := combinedText # " " # desc;
                           };
                           case null {};
@@ -697,13 +724,134 @@ persistent actor class AURA() {
     }
   };
 
-  // Helper functions
+  // Helper function for safe float parsing
   private func textToFloat(text : Text) : ?Float {
-    // Simple float parsing using Float.fromText
-    switch (Float.fromText(text)) {
-      case (#ok(f)) ?f;
-      case (#err(_)) null;
+    // Custom float parsing since Float.fromText doesn't exist
+    var result : Float = 0.0;
+    var decimalFound = false;
+    var decimalPlace : Float = 0.1;
+    var isNegative = false;
+    var hasDigits = false;
+    
+    for (char in text.chars()) {
+      switch (char) {
+        case ('-') {
+          if (not hasDigits) {
+            isNegative := true;
+          } else {
+            return null; // Invalid format
+          };
+        };
+        case ('.') {
+          if (decimalFound) {
+            return null; // Multiple decimal points
+          };
+          decimalFound := true;
+        };
+        case ('0') {
+          hasDigits := true;
+          if (decimalFound) {
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0;
+          };
+        };
+        case ('1') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (1.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 1.0;
+          };
+        };
+        case ('2') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (2.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 2.0;
+          };
+        };
+        case ('3') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (3.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 3.0;
+          };
+        };
+        case ('4') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (4.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 4.0;
+          };
+        };
+        case ('5') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (5.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 5.0;
+          };
+        };
+        case ('6') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (6.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 6.0;
+          };
+        };
+        case ('7') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (7.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 7.0;
+          };
+        };
+        case ('8') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (8.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 8.0;
+          };
+        };
+        case ('9') {
+          hasDigits := true;
+          if (decimalFound) {
+            result := result + (9.0 * decimalPlace);
+            decimalPlace := decimalPlace / 10.0;
+          } else {
+            result := result * 10.0 + 9.0;
+          };
+        };
+        case _ {
+          return null; // Invalid character
+        };
+      };
     };
+    
+    if (not hasDigits) {
+      return null;
+    };
+    
+    if (isNegative) {
+      result := -result;
+    };
+    
+    ?result
   };
 
   private func extractKeywords(text : Text) : [Text] {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingSpinner from './components/LoadingSpinner';
+import ConnectionStatus from './components/ConnectionStatus';
+import MetricsCard from './components/MetricsCard';
 import Dashboard from './components/Dashboard';
 import SentimentGauge from './components/SentimentGauge';
 import PriceCard from './components/PriceCard';
@@ -32,7 +34,9 @@ import {
   FaKey,
   FaChartBar,
   FaNewspaper,
-  FaServer
+  FaServer,
+  FaDatabase,
+  FaClock
 } from 'react-icons/fa';
 
 function App() {
@@ -51,7 +55,7 @@ function App() {
   const [status, setStatus] = useState({ message: '', type: 'info' });
 
   // Polling configuration
-  const POLL_INTERVAL = 15000; // 15 seconds
+  const POLL_INTERVAL = 10000; // 10 seconds for better responsiveness
   const CONNECTION_TIMEOUT = 10000; // 10 seconds
 
   // Initialize app
@@ -273,14 +277,11 @@ function App() {
             {/* Actions */}
             <div className="flex items-center gap-2">
               {/* Connection Status */}
-              <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                connected 
-                  ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-              }`}>
-                {connected ? <FaWifi /> : <FaWifiSlash />}
-                {connected ? 'Connected' : 'Disconnected'}
-              </div>
+              <ConnectionStatus 
+                connected={connected} 
+                error={status.type === 'error'} 
+                onRetry={initializeApp}
+              />
 
               {/* Manual Update */}
               <button
@@ -346,36 +347,101 @@ function App() {
 
         {/* System Status Bar */}
         {systemStatus && (
-          <div className="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {systemStatus.isActive ? 'Active' : 'Inactive'}
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Status</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {systemStatus.cycleCount}
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Cycles</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {systemStatus.logsCount}
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Logs</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {systemStatus.lastUpdate ? 
-                    new Date(Number(systemStatus.lastUpdate) / 1000000).toLocaleTimeString() : 
-                    'Never'
-                  }
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">Last Update</div>
-              </div>
+          <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MetricsCard
+              title="System Status"
+              value={systemStatus.isActive ? 'Active' : 'Inactive'}
+              icon={<FaRobot />}
+              color={systemStatus.isActive ? 'green' : 'red'}
+            />
+            <MetricsCard
+              title="Analysis Cycles"
+              value={systemStatus.cycleCount}
+              subtitle="Completed"
+              icon={<FaClock />}
+              color="blue"
+            />
+            <MetricsCard
+              title="System Logs"
+              value={systemStatus.logsCount}
+              subtitle="Entries"
+              icon={<FaDatabase />}
+              color="purple"
+            />
+            <MetricsCard
+              title="Last Update"
+              value={systemStatus.lastUpdate ? 
+                new Date(Number(systemStatus.lastUpdate) / 1000000).toLocaleTimeString() : 
+                'Never'
+              }
+              icon={<FaSync />}
+              color="orange"
+            />
+          </div>
+        )}
+
+        {/* Quick Actions Bar */}
+        <div className="mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-lg p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">
+              Quick Actions
+            </h3>
+            <div className="text-sm text-slate-500 dark:text-slate-400">
+              System Controls
             </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={handleManualUpdate}
+              disabled={loading || !connected}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {loading ? <LoadingSpinner size="sm" className="border-white" /> : <FaSync />}
+              Manual Update
+            </button>
+
+            {systemStatus?.isActive ? (
+              <button
+                onClick={async () => {
+                  try {
+                    await stopAutomatedCycle();
+                    setStatus({ message: 'Automated cycle stopped', type: 'success' });
+                    setTimeout(fetchAllData, 1000);
+                  } catch (error) {
+                    setStatus({ message: 'Failed to stop cycle', type: 'error' });
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-200"
+              >
+                <FaPause />
+                Stop Cycle
+              </button>
+            ) : (
+              <button
+                onClick={async () => {
+                  try {
+                    await startCycle();
+                    setStatus({ message: 'Automated cycle started', type: 'success' });
+                    setTimeout(fetchAllData, 1000);
+                  } catch (error) {
+                    setStatus({ message: 'Failed to start cycle', type: 'error' });
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all duration-200"
+              >
+                <FaPlay />
+                Start Cycle
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowApiKeyModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all duration-200"
+            >
+              <FaKey />
+              Configure API
+            </button>
           </div>
         )}
 
