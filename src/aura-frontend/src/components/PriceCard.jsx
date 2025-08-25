@@ -1,4 +1,5 @@
 import React from 'react';
+import LoadingSpinner from './LoadingSpinner';
 import { FaArrowUp, FaArrowDown, FaCoins } from 'react-icons/fa';
 
 const PriceCard = ({ price, loading = false }) => {
@@ -9,7 +10,7 @@ const PriceCard = ({ price, loading = false }) => {
           ICP Price
         </h3>
         <div className="flex items-center justify-center h-24">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <LoadingSpinner size="lg" />
         </div>
       </div>
     );

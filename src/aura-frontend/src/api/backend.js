@@ -140,6 +140,15 @@ export const startCycle = async () => {
   }
 };
 
+export const initialize = async () => {
+  try {
+    return await backend.initialize();
+  } catch (error) {
+    console.error('Error initializing system:', error);
+    throw new Error('Failed to initialize system');
+  }
+};
+
 // Connection status checker
 export const checkConnection = async () => {
   try {
