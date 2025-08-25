@@ -1,30 +1,53 @@
 import { Actor, HttpAgent } from '@dfinity/agent';
-import { idlFactory } from 'declarations/aura-backend/aura-backend.did.js';
 
-// Configuration
-const canisterId = process.env.CANISTER_ID_AURA_BACKEND || 'rdmx6-jaaaa-aaaah-qdrva-cai';
-const host = process.env.DFX_NETWORK === 'local' ? 'http://127.0.0.1:4943' : 'https://ic0.app';
+// Configuration (fallback only; prefer declarations' canisterId)
+const fallbackCanisterId = import.meta.env.VITE_CANISTER_ID_AURA_BACKEND || 'rdmx6-jaaaa-aaaah-qdrva-cai';
+const host = import.meta.env.VITE_DFX_NETWORK === 'local' ? 'http://127.0.0.1:4943' : 'https://ic0.app';
 
-// Create agent
-const agent = new HttpAgent({ host });
+let backendPromise;
 
-// Fetch root key for local development
-if (process.env.DFX_NETWORK === 'local') {
-  agent.fetchRootKey().catch(err => {
-    console.warn('Unable to fetch root key. Check to ensure that your local replica is running');
-    console.error(err);
-  });
+async function getBackend() {
+  if (!backendPromise) {
+    backendPromise = (async () => {
+      // Import canister declarations via Vite alias using literal specifiers so Vite resolves them
+      const { idlFactory } = await import('declarations/aura-backend/aura-backend.did.js').catch((e) => {
+        console.error('[AURA] Failed to import declarations', didPath, e);
+        throw new Error(
+          'Canister declarations not found. Run "dfx generate aura-backend" at the repo root to create the "declarations" folder.'
+        );
+      });
+
+      // Resolve canisterId from Vite env only (avoid importing declarations/index.js which uses process.env)
+      const resolvedCanisterId = import.meta.env.VITE_CANISTER_ID_AURA_BACKEND || fallbackCanisterId;
+
+      const agent = new HttpAgent({ host });
+
+      if (import.meta.env.VITE_DFX_NETWORK === 'local') {
+        try {
+          await agent.fetchRootKey();
+        } catch (err) {
+          console.warn(
+            'Unable to fetch root key. Ensure your local replica is running (dfx start).'
+          );
+          console.error(err);
+        }
+      }
+
+      console.info('[AURA] Connecting to canister', {
+        canisterId: resolvedCanisterId,
+        host,
+        network: import.meta.env.VITE_DFX_NETWORK || 'unknown'
+      });
+      return Actor.createActor(idlFactory, { agent, canisterId: resolvedCanisterId });
+    })();
+  }
+  return backendPromise;
 }
-
-// Create actor
-const backend = Actor.createActor(idlFactory, {
-  agent,
-  canisterId,
-});
 
 // API wrapper functions with error handling
 export const getDashboardData = async () => {
   try {
+    const backend = await getBackend();
     const result = await backend.getDashboardData();
     return result[0] || null; // Handle optional return
   } catch (error) {
@@ -35,6 +58,7 @@ export const getDashboardData = async () => {
 
 export const getLogs = async () => {
   try {
+    const backend = await getBackend();
     return await backend.getLogs();
   } catch (error) {
     console.error('Error fetching logs:', error);
@@ -44,6 +68,7 @@ export const getLogs = async () => {
 
 export const getSystemStatus = async () => {
   try {
+    const backend = await getBackend();
     return await backend.getSystemStatus();
   } catch (error) {
     console.error('Error fetching system status:', error);
@@ -53,6 +78,7 @@ export const getSystemStatus = async () => {
 
 export const manualUpdate = async () => {
   try {
+    const backend = await getBackend();
     return await backend.manualUpdate();
   } catch (error) {
     console.error('Error triggering manual update:', error);
@@ -62,6 +88,7 @@ export const manualUpdate = async () => {
 
 export const clearLogs = async () => {
   try {
+    const backend = await getBackend();
     return await backend.clearLogs();
   } catch (error) {
     console.error('Error clearing logs:', error);
@@ -71,6 +98,7 @@ export const clearLogs = async () => {
 
 export const setApiKey = async (key) => {
   try {
+    const backend = await getBackend();
     const result = await backend.setApiKey(key);
     if ('err' in result) {
       throw new Error(result.err);
@@ -84,6 +112,7 @@ export const setApiKey = async (key) => {
 
 export const healthCheck = async () => {
   try {
+    const backend = await getBackend();
     return await backend.healthCheck();
   } catch (error) {
     console.error('Error checking health:', error);
@@ -93,6 +122,7 @@ export const healthCheck = async () => {
 
 export const stopAutomatedCycle = async () => {
   try {
+    const backend = await getBackend();
     return await backend.stopAutomatedCycle();
   } catch (error) {
     console.error('Error stopping automated cycle:', error);
@@ -102,6 +132,7 @@ export const stopAutomatedCycle = async () => {
 
 export const startCycle = async () => {
   try {
+    const backend = await getBackend();
     return await backend.startCycle();
   } catch (error) {
     console.error('Error starting cycle:', error);

@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "prebuild": "dfx generate aura-backend",
-    "build": "vite build",
-    "dev": "vite dev --port 3000",
+    "prebuild": "dfx -C ../.. generate aura-backend",
+    "build": "node scripts/sync-declarations.mjs && vite build",
+    "dev": "node scripts/sync-declarations.mjs && vite dev --port 3000",
     "start": "npm run prebuild && vite dev --port 3000",
     "preview": "vite preview",
     "test": "vitest",

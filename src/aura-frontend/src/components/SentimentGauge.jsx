@@ -28,8 +28,8 @@ const SentimentGauge = ({ sentiment, loading = false }) => {
     );
   }
 
-  const score = sentiment.score || 0;
-  const confidence = sentiment.confidence || 0;
+  const score = Number(sentiment.score) || 0;
+  const confidence = Number(sentiment.confidence) || 0;
   const keywords = sentiment.keywords || [];
 
   // Determine sentiment category and colors

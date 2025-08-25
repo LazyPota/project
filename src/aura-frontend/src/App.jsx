@@ -22,7 +22,7 @@ import {
   FaSun, 
   FaCog,
   FaWifi,
-  FaWifiSlash,
+  FaExclamationTriangle,
   FaKey,
   FaChartBar,
   FaNewspaper,
@@ -30,6 +30,7 @@ import {
 } from 'react-icons/fa';
 
 function App() {
+  console.log('App component is rendering...');
   // State management
   const [dashboardData, setDashboardData] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -251,7 +252,7 @@ function App() {
                   ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                   : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
               }`}>
-                {connected ? <FaWifi /> : <FaWifiSlash />}
+                {connected ? <FaWifi /> : <FaExclamationTriangle />}
                 {connected ? 'Connected' : 'Disconnected'}
               </div>
 
@@ -329,13 +330,13 @@ function App() {
               </div>
               <div>
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {systemStatus.cycleCount}
+                  {Number(systemStatus.cycleCount)}
                 </div>
                 <div className="text-sm text-slate-500 dark:text-slate-400">Cycles</div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {systemStatus.logsCount}
+                  {Number(systemStatus.logsCount)}
                 </div>
                 <div className="text-sm text-slate-500 dark:text-slate-400">Logs</div>
               </div>

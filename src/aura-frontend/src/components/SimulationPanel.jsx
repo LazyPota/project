@@ -52,7 +52,7 @@ export default function SimulationPanel({ onSimulate, result, loading }) {
         <div className="mt-4 p-3 rounded bg-slate-100 dark:bg-slate-900">
           <div className="font-mono text-lg mb-1">Decision: <span className="font-bold">{result.decision}</span></div>
           <div className="text-sm text-slate-600 dark:text-slate-300">Reason: {result.reason}</div>
-          <div className="text-sm text-slate-600 dark:text-slate-300">Score: {result.score}</div>
+          <div className="text-sm text-slate-600 dark:text-slate-300">Score: {Number(result.score)}</div>
         </div>
       )}
     </div>

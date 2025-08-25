@@ -28,8 +28,8 @@ const PriceCard = ({ price, loading = false }) => {
     );
   }
 
-  const currentPrice = price.price || 0;
-  const change24h = price.change24h || 0;
+  const currentPrice = Number(price.price) || 0;
+  const change24h = Number(price.change24h) || 0;
   const isPositive = change24h >= 0;
 
   const formatPrice = (price) => {
